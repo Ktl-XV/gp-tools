@@ -1,0 +1,22 @@
+{
+  "name": "gp-aave",
+  "packageManager": "yarn@3.2.3",
+  "private": true,
+  "workspaces": {
+    "packages": [
+      "packages/webapp",
+      "packages/defender",
+      "packages/lib"
+    ]
+  },
+  "scripts": {
+    "eth-sdk": "yarn workspace @gp-aave/webapp eth-sdk",
+    "start": "yarn workspace @gp-aave/webapp start",
+    "queue": "yarn workspace @gp-aave/defender queue",
+    "execute": "yarn workspace @gp-aave/defender execute",
+    "build:defender": "yarn workspace @gp-aave/defender build"
+  },
+  "resolutions": {
+    "zodiac-roles-sdk@^2.7.0": "patch:zodiac-roles-sdk@npm%3A2.7.0#./patches/zodiac-roles-sdk-npm-2.7.0-2038036402.patch"
+  }
+}

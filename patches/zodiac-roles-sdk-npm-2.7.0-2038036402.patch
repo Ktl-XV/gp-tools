@@ -1,0 +1,26 @@
+diff --git a/build/cjs/sdk/src/setup.js b/build/cjs/sdk/src/setup.js
+index 532c63af03028ac95416ebf46a2c8f8e408f6e71..6b88cb56271d2227a0bbbda3b2462b2d4cba7744 100644
+--- a/build/cjs/sdk/src/setup.js
++++ b/build/cjs/sdk/src/setup.js
+@@ -71,7 +71,7 @@ const setUpRolesMod = ({ avatar, target = avatar, owner = avatar, roles = [], mu
+         value: "0",
+     };
+     // calculate deterministic proxy address for extra config calls
+-    const proxyAddress = calculateProxyAddress(deployModuleCalldata, saltNonce);
++    const proxyAddress = calculateProxyAddress(setUpCalldata, saltNonce);
+     // calls for setting up multiSend transaction unwrapping
+     const MULTISEND_SELECTOR = "0x8d80ff0a";
+     const MULTISEND_UNWRAPPER = "0x93B7fCbc63ED8a3a24B59e1C3e6649D50B7427c0";
+diff --git a/build/esm/sdk/src/setup.js b/build/esm/sdk/src/setup.js
+index 5c8da3a606d4b065d294f0b9f718702da8a70c1f..95edf28df99decf1e3f2bf4c956705b6abdfca10 100644
+--- a/build/esm/sdk/src/setup.js
++++ b/build/esm/sdk/src/setup.js
+@@ -67,7 +67,7 @@ export const setUpRolesMod = ({ avatar, target = avatar, owner = avatar, roles =
+         value: "0",
+     };
+     // calculate deterministic proxy address for extra config calls
+-    const proxyAddress = calculateProxyAddress(deployModuleCalldata, saltNonce);
++    const proxyAddress = calculateProxyAddress(setUpCalldata, saltNonce);
+     // calls for setting up multiSend transaction unwrapping
+     const MULTISEND_SELECTOR = "0x8d80ff0a";
+     const MULTISEND_UNWRAPPER = "0x93B7fCbc63ED8a3a24B59e1C3e6649D50B7427c0";
