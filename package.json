@@ -6,7 +6,8 @@
     "packages": [
       "packages/webapp",
       "packages/defender",
-      "packages/lib"
+      "packages/lib",
+      "packages/gp-tools"
     ]
   },
   "scripts": {
@@ -17,6 +18,6 @@
     "build:defender": "yarn workspace @gp-aave/defender build"
   },
   "resolutions": {
-    "zodiac-roles-sdk@^2.7.0": "patch:zodiac-roles-sdk@npm%3A2.7.0#./patches/zodiac-roles-sdk-npm-2.7.0-2038036402.patch"
+    "zodiac-roles-sdk@^2.8.0": "patch:zodiac-roles-sdk@npm%3A2.8.0#./.yarn/patches/zodiac-roles-sdk-npm-2.8.0-84e5fbc304.patch"
   }
 }

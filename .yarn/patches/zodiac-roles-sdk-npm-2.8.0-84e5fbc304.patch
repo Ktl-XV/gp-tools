@@ -1,0 +1,57 @@
+diff --git a/build/cjs/sdk/src/index.d.ts b/build/cjs/sdk/src/index.d.ts
+index 78943f823b94cc203d27b620344fc9dd6b979a8b..b6b221bac7a8354b47b746e594014ba04762318e 100644
+--- a/build/cjs/sdk/src/index.d.ts
++++ b/build/cjs/sdk/src/index.d.ts
+@@ -6,6 +6,6 @@ export { fetchRolesMod } from "./fetchRolesMod";
+ export * from "./targets";
+ export * from "./annotations";
+ export { applyMembers } from "./members";
+-export { setUpRolesMod } from "./setup";
++export { setUpRoles, setUpRolesMod } from "./setup";
+ export * from "./abi";
+ export * from "./types";
+diff --git a/build/cjs/sdk/src/index.js b/build/cjs/sdk/src/index.js
+index 8315e264c7aa2d3b2979cefaf89fd6b2392232f5..d86e8b949cf1a8c8ed9fb9d055b0cf3443f2bdc7 100644
+--- a/build/cjs/sdk/src/index.js
++++ b/build/cjs/sdk/src/index.js
+@@ -14,7 +14,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
+     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+ };
+ Object.defineProperty(exports, "__esModule", { value: true });
+-exports.setUpRolesMod = exports.applyMembers = exports.fetchRolesMod = exports.fetchRole = exports.encodeCalls = void 0;
++exports.setUpRolesMod = exports.setUpRoles = exports.applyMembers = exports.fetchRolesMod = exports.fetchRole = exports.encodeCalls = void 0;
+ __exportStar(require("./conditions"), exports);
+ __exportStar(require("./permissions"), exports);
+ var calls_1 = require("./calls");
+@@ -28,6 +28,7 @@ __exportStar(require("./annotations"), exports);
+ var members_1 = require("./members");
+ Object.defineProperty(exports, "applyMembers", { enumerable: true, get: function () { return members_1.applyMembers; } });
+ var setup_1 = require("./setup");
++Object.defineProperty(exports, "setUpRoles", { enumerable: true, get: function () { return setup_1.setUpRoles; } });
+ Object.defineProperty(exports, "setUpRolesMod", { enumerable: true, get: function () { return setup_1.setUpRolesMod; } });
+ __exportStar(require("./abi"), exports);
+ __exportStar(require("./types"), exports);
+diff --git a/build/esm/sdk/src/index.d.ts b/build/esm/sdk/src/index.d.ts
+index 78943f823b94cc203d27b620344fc9dd6b979a8b..b6b221bac7a8354b47b746e594014ba04762318e 100644
+--- a/build/esm/sdk/src/index.d.ts
++++ b/build/esm/sdk/src/index.d.ts
+@@ -6,6 +6,6 @@ export { fetchRolesMod } from "./fetchRolesMod";
+ export * from "./targets";
+ export * from "./annotations";
+ export { applyMembers } from "./members";
+-export { setUpRolesMod } from "./setup";
++export { setUpRoles, setUpRolesMod } from "./setup";
+ export * from "./abi";
+ export * from "./types";
+diff --git a/build/esm/sdk/src/index.js b/build/esm/sdk/src/index.js
+index 78943f823b94cc203d27b620344fc9dd6b979a8b..b6b221bac7a8354b47b746e594014ba04762318e 100644
+--- a/build/esm/sdk/src/index.js
++++ b/build/esm/sdk/src/index.js
+@@ -6,6 +6,6 @@ export { fetchRolesMod } from "./fetchRolesMod";
+ export * from "./targets";
+ export * from "./annotations";
+ export { applyMembers } from "./members";
+-export { setUpRolesMod } from "./setup";
++export { setUpRoles, setUpRolesMod } from "./setup";
+ export * from "./abi";
+ export * from "./types";

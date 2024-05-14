@@ -1,15 +1,16 @@
-import { WriteContractResult, getPublicClient } from "@wagmi/core";
-import { Hash, SendTransactionParameters, TransactionReceipt, WalletClient } from "viem";
+import { waitForTransactionReceipt } from "@wagmi/core";
+import { TransactionReceipt, WalletClient } from "viem";
 import { useWalletClient } from "wagmi";
+import { wagmiConfig } from "~~/services/web3/wagmiConfig";
 import { getBlockExplorerTxLink, getParsedError, notification } from "~~/utils/scaffold-eth";
 
 type TransactionFunc = (
-  tx: (() => Promise<WriteContractResult>) | (() => Promise<Hash>) | SendTransactionParameters,
+  tx: Promise<`0x${string}`>,
   options?: {
     onBlockConfirmation?: (txnReceipt: TransactionReceipt) => void;
     blockConfirmations?: number;
   },
-) => Promise<Hash | undefined>;
+) => Promise<`0x${string}` | undefined>;
 
 /**
  * Custom notification content for TXs.
@@ -47,35 +48,19 @@ export const useTransactor = (_walletClient?: WalletClient): TransactionFunc => 
     }
 
     let notificationId = null;
-    let transactionHash: Awaited<WriteContractResult>["hash"] | undefined = undefined;
+    let transactionHash: Awaited<`0x${string}`> | undefined = undefined;
     try {
-      const network = await walletClient.getChainId();
-      // Get full transaction from public client
-      const publicClient = getPublicClient();
-
       notificationId = notification.loading(<TxnNotification message="Awaiting for user confirmation" />);
-      if (typeof tx === "function") {
-        // Tx is already prepared by the caller
-        const result = await tx();
-        if (typeof result === "string") {
-          transactionHash = result;
-        } else {
-          transactionHash = result.hash;
-        }
-      } else if (tx != null) {
-        transactionHash = await walletClient.sendTransaction(tx);
-      } else {
-        throw new Error("Incorrect transaction passed to transactor");
-      }
+      const transactionHash = await tx;
       notification.remove(notificationId);
 
-      const blockExplorerTxURL = network ? getBlockExplorerTxLink(network, transactionHash) : "";
+      const blockExplorerTxURL = `https://gnosisscan.io/tx/${transactionHash}`;
 
       notificationId = notification.loading(
         <TxnNotification message="Waiting for transaction to complete." blockExplorerLink={blockExplorerTxURL} />,
       );
 
-      const transactionReceipt = await publicClient.waitForTransactionReceipt({
+      const transactionReceipt = await waitForTransactionReceipt(wagmiConfig, {
         hash: transactionHash,
         confirmations: options?.blockConfirmations,
       });

@@ -1,173 +1,117 @@
 "use client";
 
 import { useState } from "react";
-import { AAVE, AAVE_ABI, DELAY_ABI, ERC20_ABI, EURe, EURe_DECIMALS, SAFE_ABI, aEURe } from "@gp-aave/lib";
+import { AAVE, CUSTOM_NULL_ADDRESS, DELAY_ABI, ERC20_ABI, EURe, MAX_UINT256, aEURe } from "@gp-aave/lib";
 import { MetaTransaction, TransactionType, encodeMulti, encodeSingle } from "ethers-multisend";
 import type { NextPage } from "next";
-import { createPublicClient, createWalletClient, custom, encodeFunctionData, http, parseUnits } from "viem";
-import { gnosis } from "viem/chains";
-import { useAccount } from "wagmi";
+import { isAddress } from "viem";
+import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import { setUpRolesMod } from "zodiac-roles-sdk";
 import { allow } from "zodiac-roles-sdk/kit";
-import { ArrowDownTrayIcon, ArrowUpTrayIcon, ForwardIcon } from "@heroicons/react/24/outline";
+import { ForwardIcon } from "@heroicons/react/24/outline";
 import { Address } from "~~/components/scaffold-eth";
 import { AddressInput } from "~~/components/scaffold-eth";
-import { IntegerInput } from "~~/components/scaffold-eth";
-import { useScaffoldContractRead } from "~~/hooks/scaffold-eth";
+import { useTransactor } from "~~/hooks/scaffold-eth";
+import { findSafeProperties, formatAddresses } from "~~/utils";
 
-const client = createPublicClient({
-  chain: gnosis,
-  transport: http(),
-});
-
-const walletClient = createWalletClient({
-  chain: gnosis,
-  transport: custom(window.ethereum!),
-});
-
-const Home: NextPage = () => {
-  const [safeAddress, setSafeAddress] = useState<`0x${string}`>();
-  const [delayAddress, setDelayAddress] = useState<`0x${string}`>();
-  const [executorAddress, setExecutorAddress] = useState<`0x${string}`>();
-  const [rolesModuleAddress, setRolesModuleAddress] = useState<`0x${string}`>();
-  const [depositAmount, setDepositAmount] = useState<string>();
-  const [withdrawAmount, setWithdrawAmount] = useState<string>();
+const Setup: NextPage = () => {
+  const [safeAddress, setSafeAddress] = useState<string>("");
+  const [delayAddress, setDelayAddress] = useState<string>("");
+  const [hotWalletAddress, setHotWalletAddress] = useState<string>("");
+  const [executorAddress, setExecutorAddress] = useState<string>("");
+  const [rolesModuleAddress, setRolesModuleAddress] = useState<string>("");
   const [isRolesModuleDeployed, setIsRolesModuleDeployed] = useState<boolean>();
   const [isConnectedOwner, setIsConnectedOwner] = useState<boolean>();
   const { address: connectedAddress } = useAccount();
-  const { data: safeEUReBalance, isLoading: isSafeEUReBalanceLoading } = useScaffoldContractRead({
-    contractName: "EURe",
-    functionName: "balanceOf",
-    args: [safeAddress],
-    watch: true,
+  const { writeContractAsync } = useWriteContract();
+  const {
+    data: queueNonce,
+    isLoading: isQueueNonceLoading,
+    isFetched: isQueueNonceFetched,
+  } = useReadContract({
+    address: delayAddress as `0x${string}`,
+    abi: DELAY_ABI,
+    functionName: "queueNonce",
+    query: {
+      select: data => {
+        return (data as bigint).toString();
+      },
+      enabled: isAddress(delayAddress),
+    },
+  });
+  const {
+    data: txNonce,
+    isLoading: isTxNonceLoading,
+    isFetched: isTxNonceFetched,
+  } = useReadContract({
+    address: delayAddress as `0x${string}`,
+    abi: DELAY_ABI,
+    functionName: "txNonce",
+    query: {
+      select: data => {
+        return (data as bigint).toString();
+      },
+      enabled: isAddress(delayAddress),
+    },
   });
 
-  const { data: safeaEUReBalance, isLoading: isSafeaEUReBalanceLoading } = useScaffoldContractRead({
-    contractName: "aEURe",
-    functionName: "balanceOf",
-    args: [safeAddress],
-    watch: true,
-  });
+  const writeTx = useTransactor();
 
-  async function isContract(address: string): Promise<boolean> {
-    const bytecode = await client.getBytecode({
-      address: address,
+  function buildApproveWithdrawAAVE() {
+    return encodeSingle({
+      type: TransactionType.callContract,
+      id: "",
+      to: aEURe,
+      value: "0",
+      abi: JSON.stringify(ERC20_ABI),
+      functionSignature: "approve(address,uint256)",
+      inputValues: [AAVE, MAX_UINT256],
     });
-    return bytecode !== undefined;
-  }
-
-  async function isConectedOwner(connectedAddress: `0x${string}`, delayAddress: `0x${string}`): Promise<boolean> {
-    const res = (await client.readContract({
-      address: delayAddress,
-      abi: DELAY_ABI,
-      functionName: "isModuleEnabled",
-      args: [connectedAddress],
-    })) as boolean;
-    return res;
-  }
-
-  function buildApproveAAVE() {
-    return [
-      encodeSingle({
-        type: TransactionType.callContract,
-        id: "",
-        to: EURe,
-        value: "0",
-        abi: JSON.stringify(ERC20_ABI),
-        functionSignature: "approve(address,uint256)",
-        inputValues: [AAVE, "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"],
-      }),
-      encodeSingle({
-        type: TransactionType.callContract,
-        id: "",
-        to: aEURe,
-        value: "0",
-        abi: JSON.stringify(ERC20_ABI),
-        functionSignature: "approve(address,uint256)",
-        inputValues: [AAVE, "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"],
-      }),
-    ];
   }
 
   function buildRolesModule(
     safeAddress: `0x${string}`,
     delayAddress: `0x${string}`,
-    executorAddress: `0x${string}` = "0x0000000000000000000000000000000000000000",
+    executorAddress: `0x${string}`,
+    hotWalletAddress: `0x${string}`,
   ) {
-    const permissions = [allow.gnosis.aave.withdraw(EURe, undefined, safeAddress)];
+    const roles = [
+      {
+        key: "WithdrawEUReFromAAVE",
+        members: [executorAddress],
+        permissions: [allow.gnosis.aave.withdraw(EURe, undefined, safeAddress)],
+      },
+      {
+        key: "Approve0x2SpendEURe",
+        members: [hotWalletAddress],
+        permissions: [allow.gnosis.eure.approve(CUSTOM_NULL_ADDRESS, MAX_UINT256)],
+      },
+    ];
 
     const setupCalls = setUpRolesMod({
       avatar: safeAddress,
       target: delayAddress,
-      roles: [{ key: "WithdrawEUReFromAAVE", members: [executorAddress], permissions }],
+      roles,
     });
 
     return setupCalls;
-  }
-
-  async function findDelayModule(safeAddress: `0x${string}`): Promise<`0x${string}`> {
-    const safeModules = (
-      (await client.readContract({
-        address: safeAddress,
-        abi: SAFE_ABI,
-        functionName: "getModulesPaginated",
-        args: ["0x0000000000000000000000000000000000000001", 5],
-      })) as string[]
-    )[0];
-
-    let newDelayAddress = null;
-
-    for (const safeModule of safeModules) {
-      try {
-        await client.readContract({
-          address: safeModule,
-          abi: DELAY_ABI,
-          functionName: "queueNonce",
-        });
-        newDelayAddress = safeModule;
-      } catch {
-        console.debug(`Not delay module: ${safeModule}`);
-      }
-    }
-
-    if (newDelayAddress === null) {
-      throw Error("Delay not found");
-    }
-
-    return newDelayAddress as `0x${string}`;
   }
 
   function buildMultisend(
     safeAddress: `0x${string}`,
     delayAddress: `0x${string}`,
     executorAddress: `0x${string}`,
-    depositAmount: string | undefined,
+    hotWalletAddress: `0x${string}`,
   ): MetaTransaction {
-    const calls = [...buildApproveAAVE(), ...buildRolesModule(safeAddress, delayAddress, executorAddress)];
-
-    if (depositAmount !== undefined) {
-      calls.push(
-        encodeSingle({
-          type: TransactionType.callContract,
-          id: "",
-          to: AAVE,
-          value: "0",
-          abi: JSON.stringify(AAVE_ABI),
-          functionSignature: "supply(address,uint256,address,uint16)",
-          inputValues: [EURe, "0x" + parseUnits(depositAmount, EURe_DECIMALS).toString(16), safeAddress, "0x0"],
-        }),
-      );
-    }
+    const calls = [
+      buildApproveWithdrawAAVE(),
+      ...buildRolesModule(safeAddress, delayAddress, executorAddress, hotWalletAddress),
+    ];
 
     return encodeMulti(calls);
   }
 
-  function prepTx(
-    safeAddress: `0x${string}`,
-    connectedAddress: `0x${string}`,
-    delayAddress: `0x${string}`,
-    multiSendTx: MetaTransaction,
-  ) {
+  function prepTx(connectedAddress: `0x${string}`, delayAddress: `0x${string}`, multiSendTx: MetaTransaction) {
     return {
       account: connectedAddress,
       address: delayAddress,
@@ -176,144 +120,68 @@ const Home: NextPage = () => {
     };
   }
 
-  async function queue() {
-    if (
-      safeAddress !== undefined &&
-      delayAddress !== undefined &&
-      connectedAddress !== undefined &&
-      executorAddress !== undefined
-    ) {
-      const multiSendTx = buildMultisend(safeAddress, delayAddress, executorAddress, depositAmount);
-      const preppedTx = await prepTx(safeAddress, connectedAddress as `0x${string}`, delayAddress, multiSendTx);
-      const hash = await walletClient.writeContract({ functionName: "execTransactionFromModule", ...preppedTx });
-      console.log(hash);
-    }
-  }
-
-  async function execute() {
-    if (
-      safeAddress !== undefined &&
-      delayAddress !== undefined &&
-      connectedAddress !== undefined &&
-      executorAddress !== undefined
-    ) {
-      const multiSendTx = buildMultisend(safeAddress, delayAddress, executorAddress, depositAmount);
-      const preppedTx = await prepTx(safeAddress, connectedAddress as `0x${string}`, delayAddress, multiSendTx);
-      const hash = await walletClient.writeContract({ functionName: "executeNextTx", ...preppedTx });
-      console.log(hash);
-    }
-  }
-
-  function buildDepositCalldata(safeAddress: string, amount: string) {
-    return encodeFunctionData({
-      abi: AAVE_ABI,
-      functionName: "supply",
-      args: [EURe, parseUnits(amount, EURe_DECIMALS), safeAddress, 0],
-    });
-  }
-
-  function buildWithdrawCalldata(safeAddress: string, amount: string) {
-    return encodeFunctionData({
-      abi: AAVE_ABI,
-      functionName: "withdraw",
-      args: [EURe, parseUnits(amount, EURe_DECIMALS), safeAddress],
-    });
-  }
-
-  async function depositQueue() {
-    if (
-      safeAddress !== undefined &&
-      delayAddress !== undefined &&
-      depositAmount !== undefined &&
-      connectedAddress !== undefined
-    ) {
-      const depositCalldata = buildDepositCalldata(safeAddress, depositAmount);
-      const hash = await walletClient.writeContract({
-        account: connectedAddress,
-        address: delayAddress,
+  async function queueSetup() {
+    const [_safeAddress, _delayAddress, _connectedAddress, _executorAddress, _hotWalletAddress] = formatAddresses([
+      safeAddress,
+      delayAddress,
+      connectedAddress,
+      executorAddress,
+      hotWalletAddress,
+    ]);
+    if (connectedAddress) {
+      const multiSendTx = buildMultisend(_safeAddress, _delayAddress, _executorAddress, _hotWalletAddress);
+      const preppedTx = await prepTx(_connectedAddress, _delayAddress, multiSendTx);
+      const writePromise = writeContractAsync({
         functionName: "execTransactionFromModule",
-        abi: DELAY_ABI,
-        args: [AAVE, 0, depositCalldata, 0],
+        ...preppedTx,
       });
-      console.log(hash);
+      writeTx(writePromise, { blockConfirmations: 1 });
     }
   }
-  async function depositExecute() {
-    if (
-      safeAddress !== undefined &&
-      delayAddress !== undefined &&
-      depositAmount !== undefined &&
-      connectedAddress !== undefined
-    ) {
-      const depositCalldata = buildDepositCalldata(safeAddress, depositAmount);
-      const hash = await walletClient.writeContract({
-        account: connectedAddress,
-        address: delayAddress,
-        functionName: "executeNextTx",
-        abi: DELAY_ABI,
-        args: [AAVE, 0, depositCalldata, 0],
-      });
-      console.log(hash);
+
+  async function executeSetup() {
+    const [_safeAddress, _delayAddress, _connectedAddress, _executorAddress, _hotWalletAddress] = formatAddresses([
+      safeAddress,
+      delayAddress,
+      connectedAddress,
+      executorAddress,
+      hotWalletAddress,
+    ]);
+    if (connectedAddress) {
+      const multiSendTx = buildMultisend(_safeAddress, _delayAddress, _executorAddress, _hotWalletAddress);
+      const preppedTx = await prepTx(_connectedAddress, _delayAddress, multiSendTx);
+      const writePromise = writeContractAsync({ functionName: "executeNextTx", ...preppedTx });
+      writeTx(writePromise, { blockConfirmations: 1 });
     }
   }
-  async function withdrawQueue() {
-    if (
-      safeAddress !== undefined &&
-      delayAddress !== undefined &&
-      withdrawAmount !== undefined &&
-      connectedAddress !== undefined
-    ) {
-      const depositCalldata = buildWithdrawCalldata(safeAddress, withdrawAmount);
-      const hash = await walletClient.writeContract({
-        account: connectedAddress,
-        address: delayAddress,
-        functionName: "execTransactionFromModule",
-        abi: DELAY_ABI,
-        args: [AAVE, 0, depositCalldata, 0],
-      });
-      console.log(hash);
-    }
-  }
-  async function withdrawExecute() {
-    if (
-      safeAddress !== undefined &&
-      delayAddress !== undefined &&
-      withdrawAmount !== undefined &&
-      connectedAddress !== undefined
-    ) {
-      const depositCalldata = buildWithdrawCalldata(safeAddress, withdrawAmount);
-      const hash = await walletClient.writeContract({
-        account: connectedAddress,
-        address: delayAddress,
-        functionName: "executeNextTx",
-        abi: DELAY_ABI,
-        args: [AAVE, 0, depositCalldata, 0],
-      });
-      console.log(hash);
-    }
-  }
+
   async function skipExpired() {
-    if (safeAddress !== undefined && delayAddress !== undefined && connectedAddress !== undefined) {
-      const hash = await walletClient.writeContract({
-        account: connectedAddress,
-        address: delayAddress,
+    const [_delayAddress, _connectedAddress] = formatAddresses([delayAddress, connectedAddress]);
+    if (connectedAddress) {
+      const writePromise = writeContractAsync({
+        account: _connectedAddress,
+        address: _delayAddress,
         functionName: "skipExpired",
         abi: DELAY_ABI,
       });
-      console.log(hash);
+      writeTx(writePromise, { blockConfirmations: 1 });
     }
   }
-
   async function updateSafeAddress(newSafeAddress: string) {
     const typedSafeAddress = newSafeAddress as `0x${string}`;
     setSafeAddress(typedSafeAddress);
-    const newDelayAddress = await findDelayModule(typedSafeAddress);
+    const {
+      delayAddress: newDelayAddress,
+      rolesModuleAddress: newRolesModuleAddress,
+      isRolesModuleDeployed: newIsRolesModuleDeployed,
+      isConnectedOwner: newIsConnectedOwner,
+    } = await findSafeProperties(typedSafeAddress, connectedAddress as `0x${string}`);
     setDelayAddress(newDelayAddress);
-    const setPermisionsCall = buildRolesModule(typedSafeAddress, newDelayAddress)[1];
-    const newRolesModuleAddress = setPermisionsCall.to as `0x{string}`;
     setRolesModuleAddress(newRolesModuleAddress);
-    setIsRolesModuleDeployed(await isContract(newRolesModuleAddress));
-    setIsConnectedOwner(await isConectedOwner(connectedAddress, newDelayAddress));
+    setIsRolesModuleDeployed(newIsRolesModuleDeployed);
+    if (newIsConnectedOwner) {
+      setIsConnectedOwner(newIsConnectedOwner);
+    }
   }
 
   return (
@@ -321,7 +189,7 @@ const Home: NextPage = () => {
       <div className="flex items-center flex-col flex-grow pt-10">
         <div className="px-5">
           <h1 className="text-center">
-            <span className="block text-4xl font-bold">Gnosis Pay + AAVE</span>
+            <span className="block text-4xl font-bold">Setup</span>
           </h1>
           <div className="flex justify-center items-center space-x-2">
             <p className="my-2 font-medium">Connected Address:</p>
@@ -345,12 +213,20 @@ const Home: NextPage = () => {
             />
           </div>
           <div className="flex justify-center items-center space-x-2">
+            <p>Hot Wallet:</p>
+            <AddressInput
+              onChange={setHotWalletAddress}
+              value={hotWalletAddress}
+              placeholder="Input the hot wallet address"
+            />
+          </div>
+          <div className="flex justify-center items-center space-x-2">
             <p className="my-2 font-medium">Delay Address:</p>
-            <Address address={delayAddress} />
+            <Address address={delayAddress as `0x{string}`} />
           </div>
           <div className="flex justify-center items-center space-x-2">
             <p className="my-2 font-medium">Roles Module Address:</p>
-            <Address address={rolesModuleAddress} />
+            <Address address={rolesModuleAddress as `0x{string}`} />
           </div>
           <div className="flex justify-center items-center space-x-2">
             <p>
@@ -366,18 +242,16 @@ const Home: NextPage = () => {
           </div>
           <div className="flex justify-center items-center space-x-2">
             <button
-              disabled={safeAddress === undefined || executorAddress === undefined || isRolesModuleDeployed === true}
+              disabled={safeAddress === "" || executorAddress === "" || isRolesModuleDeployed === true}
               className="btn btn-primary"
-              daisyUI
-              onClick={queue}
+              onClick={queueSetup}
             >
               Queue
             </button>
             <button
-              disabled={safeAddress === undefined || executorAddress === undefined || isRolesModuleDeployed === true}
+              disabled={safeAddress === "" || executorAddress === "" || isRolesModuleDeployed === true}
               className="btn btn-primary"
-              daisyUI
-              onClick={execute}
+              onClick={executeSetup}
             >
               Execute
             </button>
@@ -388,97 +262,37 @@ const Home: NextPage = () => {
             <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
               <div className="card card-compact w-64 bg-secondary text-primary-content shadow-xl m-4">
                 <div className="card-body items-center text-center">
-                  <h2 className="card-title">Safe EURe Balance</h2>
+                  <h2 className="card-title">Queue Nonce</h2>
                   <div className="card-actions items-center flex-col gap-1 text-lg">
-                    {isSafeEUReBalanceLoading ? (
+                    {isQueueNonceLoading ? (
                       <span className="loading loading-spinner"></span>
+                    ) : isQueueNonceFetched ? (
+                      <p className="m-0">{queueNonce}</p>
                     ) : (
-                      <p className="m-0">
-                        {safeEUReBalance ? (Number(safeEUReBalance / 10000000000000000n) / 100).toString() : 0}
-                      </p>
+                      <p className="m-0">-</p>
                     )}
                   </div>
                 </div>
               </div>
               <div className="card card-compact w-64 bg-secondary text-primary-content shadow-xl m-4">
                 <div className="card-body items-center text-center">
-                  <h2 className="card-title">Safe AAVE EURe Balance</h2>
+                  <h2 className="card-title">Tx Nonce</h2>
                   <div className="card-actions items-center flex-col gap-1 text-lg">
-                    {isSafeaEUReBalanceLoading ? (
+                    {isTxNonceLoading ? (
                       <span className="loading loading-spinner"></span>
+                    ) : isTxNonceFetched ? (
+                      <p className="m-0">{txNonce}</p>
                     ) : (
-                      <p className="m-0">
-                        {safeaEUReBalance ? (Number(safeaEUReBalance / 10000000000000000n) / 100).toString() : 0}
-                      </p>
+                      <p className="m-0">-</p>
                     )}
                   </div>
                 </div>
               </div>
             </div>
             <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <ArrowUpTrayIcon className="h-8 w-8 fill-secondary" />
-              Deposit to AAVE
-              <IntegerInput
-                value={depositAmount}
-                onChange={updatedDepositAmount => {
-                  setDepositAmount(updatedDepositAmount as string);
-                }}
-                placeholder="Amount to deposit to AAVE"
-              />
-              <div>
-                <button
-                  className="btn btn-primary"
-                  daisyUI
-                  disabled={depositAmount === undefined}
-                  onClick={depositQueue}
-                >
-                  Queue
-                </button>
-                <button
-                  className="btn btn-primary"
-                  daisyUI
-                  disabled={depositAmount === undefined}
-                  Button
-                  onClick={depositExecute}
-                >
-                  Execute
-                </button>
-              </div>
-            </div>
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <ArrowDownTrayIcon className="h-8 w-8 fill-secondary" />
-              Withdraw from AAVE
-              <IntegerInput
-                value={withdrawAmount}
-                onChange={updatedWithdrawAmount => {
-                  setWithdrawAmount(updatedWithdrawAmount as string);
-                }}
-                placeholder="Amount to withdraw from AAVE"
-              />
-              <div>
-                <button
-                  className="btn btn-primary"
-                  daisyUI
-                  disabled={withdrawAmount === undefined}
-                  onClick={withdrawQueue}
-                >
-                  Queue
-                </button>
-                <button
-                  className="btn btn-primary"
-                  daisyUI
-                  disabled={withdrawAmount === undefined}
-                  Button
-                  onClick={withdrawExecute}
-                >
-                  Execute
-                </button>
-              </div>
-            </div>
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
               <ForwardIcon className="h-8 w-8 fill-secondary" />
               Skip expired
-              <button disabled={!isConnectedOwner} className="btn btn-primary" daisyUI onClick={skipExpired}>
+              <button disabled={delayAddress === ""} className="btn btn-primary" onClick={skipExpired}>
                 Execute
               </button>
             </div>
@@ -489,4 +303,4 @@ const Home: NextPage = () => {
   );
 };
 
-export default Home;
+export default Setup;

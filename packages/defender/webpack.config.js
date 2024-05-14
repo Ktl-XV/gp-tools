@@ -30,7 +30,6 @@ module.exports = {
   externalsType: "commonjs2",
   plugins: [
     // List here all dependencies that are not run in the Autotask environment
-    new webpack.IgnorePlugin({ resourceRegExp: /dotenv/ }),
     new Dotenv({ path: "../../.env", safe: true }),
   ],
   output: {

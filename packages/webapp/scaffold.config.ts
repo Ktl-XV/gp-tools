@@ -5,7 +5,6 @@ export type ScaffoldConfig = {
   pollingInterval: number;
   alchemyApiKey: string;
   walletConnectProjectId: string;
-  onlyLocalBurnerWallet: boolean;
   walletAutoConnect: boolean;
 };
 
@@ -29,13 +28,9 @@ const scaffoldConfig = {
   // .env.local for local testing, and in the Vercel/system env config for live apps.
   walletConnectProjectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || "3a8170812b534d0ff9d794f19a901d64",
 
-  // Only show the Burner Wallet when running on hardhat network
-  onlyLocalBurnerWallet: true,
-
   /**
    * Auto connect:
-   * 1. If the user was connected into a wallet before, on page reload reconnect automatically
-   * 2. If user is not connected to any wallet:  On reload, connect to burner wallet if burnerWallet.enabled is true && burnerWallet.onlyLocal is false
+   * If the user was connected into a wallet before, on page reload reconnect automatically
    */
   walletAutoConnect: true,
 } as const satisfies ScaffoldConfig;

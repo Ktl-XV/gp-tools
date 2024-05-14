@@ -15,7 +15,7 @@ Before you begin, you need to install the following tools:
 - Yarn ([v1](https://classic.yarnpkg.com/en/docs/install/) or [v2+](https://yarnpkg.com/getting-started/install))
 - [Git](https://git-scm.com/downloads)
 
-## Instruections
+## Instructions
 
 
 1. Install the dependencies and build eth-sdk
@@ -55,7 +55,8 @@ The actions executed are:
 * GP_SAFE: Address of the Gnosis Pay Safe
 * DELAY: Address of the Delay module (shown in the webapp)
 * ROLES: Address of the new Roles module (shown in the webapp)
-* RELOAD_LIMIT: The amount of EURe which should always be available in the Safe, should be at least the Gnosis Pay's max daily limit. Preferably greater, so the reload task is not tiggered that often
+* TOPUP_TRIGGER: The amount of EURe which should always be available in the Safe, should be the Gnosis Pay's max daily limit.
+* TOPUP_TO: The desired EURe balance after each topup, must be greater or equal to TOPUP_TRIGGER. If every small Gnosis Pay Tx triggers a reload, the gas cost of withdrawing is greater than the accured interest in AAVE. The difference between TOPUP_TO and TOPUP_TRIGGER acts as a buffer to reduce the amount of withdrals.
 
 
 5. Build the executor code

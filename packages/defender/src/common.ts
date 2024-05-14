@@ -25,18 +25,29 @@ export const aEURe_DECIMALS = 18;
 export const ROLE_KEY =
   "0x57697468647261774555526546726f6d41415645000000000000000000000000";
 
-import { RELOAD_LIMIT, GP_SAFE } from "./config";
+import { TOPUP_TRIGGER, TOPUP_TO, GP_SAFE } from "./config";
 
-export const reloadLimitAmount = ethers.utils.parseUnits(
-  RELOAD_LIMIT.toString(),
+export const topUpTriggerAmount = ethers.utils.parseUnits(
+  TOPUP_TRIGGER.toString(),
   EURe_DECIMALS,
 );
 
-export async function getMissingAmount(
-  provider: DefenderRelayProvider,
-): Promise<BigNumber> {
+export const topUpToAmount = ethers.utils.parseUnits(
+  TOPUP_TO.toString(),
+  EURe_DECIMALS,
+);
+
+async function getBalance(provider: DefenderRelayProvider): Promise<BigNumber> {
   const eure = new ethers.Contract(EURe, ERC20_ABI, provider);
   const eureBalance: BigNumber = await eure.balanceOf(GP_SAFE);
+
+  return eureBalance;
+}
+
+export async function getNeedsTopUp(
+  provider: DefenderRelayProvider,
+): Promise<boolean> {
+  const eureBalance = await getBalance(provider);
 
   const eureBalanceDisplay = ethers.utils.formatUnits(
     eureBalance,
@@ -44,16 +55,16 @@ export async function getMissingAmount(
   );
   console.info(`EURe balance: ${eureBalanceDisplay}`);
 
-  const missingAmount = reloadLimitAmount.sub(eureBalance);
-  return missingAmount;
+  return topUpTriggerAmount > eureBalance;
 }
 
-export async function getReloadAmount(
+export async function getTopupAmount(
   provider: DefenderRelayProvider,
-  missingAmount: BigNumber,
 ): Promise<BigNumber> {
   const aeure = new ethers.Contract(aEURe, ERC20_ABI, provider);
   const aeureBalance: BigNumber = await aeure.balanceOf(GP_SAFE);
+
+  const missingAmount = topUpToAmount.sub(await getBalance(provider));
 
   const reloadAmount = aeureBalance.gte(missingAmount)
     ? missingAmount

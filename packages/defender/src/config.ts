@@ -1,12 +1,10 @@
-export type EnvConfig = {
-  GP_SAFE: string;
-  DELAY: string;
-  ROLES: string;
-  RELOAD_LIMIT: string;
-  API_KEY: string;
-  API_SECRET: string;
-};
-
 require("dotenv").config({ path: "../../.env" });
-export const { GP_SAFE, DELAY, ROLES, RELOAD_LIMIT, API_KEY, API_SECRET } =
-  process.env as EnvConfig;
+
+// dotenv-webpack does not support destructuring
+export const GP_SAFE = process.env.GP_SAFE;
+export const DELAY = process.env.DELAY;
+export const ROLES = process.env.ROLES;
+export const TOPUP_TRIGGER = process.env.TOPUP_TRIGGER;
+export const TOPUP_TO = process.env.TOPUP_TO;
+export const API_KEY = process.env.API_KEY;
+export const API_SECRET = process.env.API_SECRET;

@@ -1,30 +1,28 @@
-import { BaseError as BaseViemError, DecodeErrorResultReturnType } from "viem";
+import { BaseError, ContractFunctionRevertedError } from "viem";
 
 /**
  * Parses an viem/wagmi error to get a displayable string
  * @param e - error object
  * @returns parsed error string
  */
-export const getParsedError = (e: any): string => {
-  let message: string = e.message ?? "An unknown error occurred";
-  if (e instanceof BaseViemError) {
-    if (e.details) {
-      message = e.details;
-    } else if (e.shortMessage) {
-      message = e.shortMessage;
-      const cause = e.cause as { data?: DecodeErrorResultReturnType } | undefined;
-      // if its not generic error, append custom error name and its args to message
-      if (cause?.data && cause.data?.abiItem?.name !== "Error") {
-        const customErrorArgs = cause.data.args?.toString() ?? "";
-        message = `${message.replace(/reverted\.$/, "reverted with following reason:")}\n${
-          cause.data.errorName
-        }(${customErrorArgs})`;
+export const getParsedError = (err: any): string => {
+  let message = "An unknown error occurred";
+  if (err instanceof BaseError) {
+    console.log("aaaa");
+    const revertError = err.walk(err => err instanceof ContractFunctionRevertedError);
+    console.log("bbbb");
+    console.log(revertError);
+    if (revertError instanceof ContractFunctionRevertedError) {
+      console.log("cccc");
+      const errorName = revertError.data?.errorName ?? "";
+      if (errorName !== "") {
+        message = errorName;
       }
-    } else if (e.message) {
-      message = e.message;
-    } else if (e.name) {
-      message = e.name;
     }
+  } else if (err.message) {
+    message = err.message;
+  } else if (err.name) {
+    message = err.name;
   }
 
   return message;

@@ -10,8 +10,8 @@ import { ROLES_ABI, AAVE, DELAY_ABI } from "@gp-aave/lib";
 
 import {
   CALL_OPERATION,
-  getMissingAmount,
-  getReloadAmount,
+  getNeedsTopUp,
+  getTopupAmount,
   generateWithdrawCalldata,
   EnvInfo,
   ROLE_KEY,
@@ -24,10 +24,10 @@ export async function handler(credentials: RelayerParams) {
   const provider = new DefenderRelayProvider(credentials);
   const signer = new DefenderRelaySigner(credentials, provider);
 
-  const missingAmount = await getMissingAmount(provider);
-  if (missingAmount.gt(0)) {
-    const reloadAmount = await getReloadAmount(provider, missingAmount);
-    const withdrawCalldata = generateWithdrawCalldata(reloadAmount);
+  const needsTopUp = await getNeedsTopUp(provider);
+  if (needsTopUp) {
+    const topupAmount = await getTopupAmount(provider);
+    const withdrawCalldata = generateWithdrawCalldata(topupAmount);
 
     const delay = new ethers.Contract(DELAY, DELAY_ABI, signer);
     const tx = await delay.executeNextTx(
