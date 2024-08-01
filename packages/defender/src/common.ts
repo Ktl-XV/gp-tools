@@ -64,24 +64,29 @@ export async function getTopupAmount(
   const aeure = new ethers.Contract(aEURe, ERC20_ABI, provider);
   const aeureBalance: BigNumber = await aeure.balanceOf(GP_SAFE);
 
+  if (aeureBalance.isZero()) {
+    throw Error("No EURe Balance in AAVE to withdraw from");
+  }
+
   const missingAmount = topUpToAmount.sub(await getBalance(provider));
 
   const reloadAmount = aeureBalance.gte(missingAmount)
     ? missingAmount
-    : aeureBalance;
-  const reloadAmountDisplay = ethers.utils.formatUnits(
-    reloadAmount,
-    aEURe_DECIMALS,
-  );
+    : ethers.constants.MaxUint256;
 
-  if (reloadAmount.isZero()) {
-    throw Error("No EURe Balance in AAVE to withdraw from");
-  }
-  if (reloadAmount.lt(missingAmount)) {
-    console.warn("aEURe balance low, not enough balance for full reload");
+  if (reloadAmount.eq(ethers.constants.MaxUint256)) {
+    console.warn(
+      "aEURe balance low, not enough balance for full reload, withdrawing all",
+    );
+  } else {
+    const reloadAmountDisplay = ethers.utils.formatUnits(
+      reloadAmount,
+      aEURe_DECIMALS,
+    );
+
+    console.info(`Withdrawing ${reloadAmountDisplay} EURe from AAVE`);
   }
 
-  console.info(`Withdrawing ${reloadAmountDisplay} EURe from AAVE`);
   return reloadAmount;
 }
 

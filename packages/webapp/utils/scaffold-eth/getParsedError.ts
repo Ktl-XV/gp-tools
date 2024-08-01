@@ -8,12 +8,8 @@ import { BaseError, ContractFunctionRevertedError } from "viem";
 export const getParsedError = (err: any): string => {
   let message = "An unknown error occurred";
   if (err instanceof BaseError) {
-    console.log("aaaa");
     const revertError = err.walk(err => err instanceof ContractFunctionRevertedError);
-    console.log("bbbb");
-    console.log(revertError);
     if (revertError instanceof ContractFunctionRevertedError) {
-      console.log("cccc");
       const errorName = revertError.data?.errorName ?? "";
       if (errorName !== "") {
         message = errorName;
