@@ -100,7 +100,3 @@ export function generateWithdrawCalldata(reloadAmount: BigNumber) {
   ]);
   return withdrawCalldata;
 }
-export type EnvInfo = {
-  API_KEY: string;
-  API_SECRET: string;
-};

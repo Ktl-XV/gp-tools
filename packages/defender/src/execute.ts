@@ -1,23 +1,22 @@
 // Import dependencies available in the autotask environment
-import { RelayerParams } from "defender-relay-client/lib/relayer";
 import {
   DefenderRelayProvider,
   DefenderRelaySigner,
 } from "defender-relay-client/lib/ethers";
-import { ethers, BigNumber } from "ethers";
+import { RelayerParams } from "defender-relay-client/lib/relayer";
+import { BigNumber, ethers } from "ethers";
 
-import { ROLES_ABI, AAVE, DELAY_ABI } from "@gp-aave/lib";
+import { AAVE, DELAY_ABI, ROLES_ABI } from "@gp-aave/lib";
 
 import {
   CALL_OPERATION,
+  ROLE_KEY,
+  generateWithdrawCalldata,
   getNeedsTopUp,
   getTopupAmount,
-  generateWithdrawCalldata,
-  EnvInfo,
-  ROLE_KEY,
 } from "./common";
 
-import { DELAY, API_KEY, API_SECRET } from "./config";
+import { API_KEY, API_SECRET, DELAY } from "./config";
 
 // Entrypoint for the Autotask
 export async function handler(credentials: RelayerParams) {
