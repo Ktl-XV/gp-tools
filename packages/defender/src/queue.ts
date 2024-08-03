@@ -1,23 +1,22 @@
 // Import dependencies available in the autotask environment
-import { RelayerParams } from "defender-relay-client/lib/relayer";
 import {
   DefenderRelayProvider,
   DefenderRelaySigner,
 } from "defender-relay-client/lib/ethers";
-import { ethers, BigNumber } from "ethers";
+import { RelayerParams } from "defender-relay-client/lib/relayer";
+import { BigNumber, ethers } from "ethers";
 
-import { ROLES_ABI, AAVE } from "@gp-aave/lib";
+import { AAVE, ROLES_ABI } from "@gp-aave/lib";
 
 import {
   CALL_OPERATION,
+  ROLE_KEY,
+  generateWithdrawCalldata,
   getNeedsTopUp,
   getTopupAmount,
-  generateWithdrawCalldata,
-  EnvInfo,
-  ROLE_KEY,
 } from "./common";
 
-import { ROLES, API_KEY, API_SECRET } from "./config";
+import { API_KEY, API_SECRET, ROLES } from "./config";
 
 // Entrypoint for the Autotask
 export async function handler(credentials: RelayerParams) {
@@ -30,6 +29,7 @@ export async function handler(credentials: RelayerParams) {
     const withdrawCalldata = generateWithdrawCalldata(topupAmount);
 
     const roles = new ethers.Contract(ROLES, ROLES_ABI, signer);
+
     const tx = await roles.execTransactionWithRole(
       AAVE,
       0,

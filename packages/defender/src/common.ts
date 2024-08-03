@@ -1,10 +1,10 @@
 // Import dependencies available in the autotask environment
-import { RelayerParams } from "defender-relay-client/lib/relayer";
 import {
   DefenderRelayProvider,
   DefenderRelaySigner,
 } from "defender-relay-client/lib/ethers";
-import { ethers, BigNumber } from "ethers";
+import { RelayerParams } from "defender-relay-client/lib/relayer";
+import { BigNumber, ethers } from "ethers";
 
 // Import an ABI which will be embedded into the generated js
 
@@ -25,7 +25,7 @@ export const aEURe_DECIMALS = 18;
 export const ROLE_KEY =
   "0x57697468647261774555526546726f6d41415645000000000000000000000000";
 
-import { TOPUP_TRIGGER, TOPUP_TO, GP_SAFE } from "./config";
+import { GP_SAFE, TOPUP_TO, TOPUP_TRIGGER } from "./config";
 
 export const topUpTriggerAmount = ethers.utils.parseUnits(
   TOPUP_TRIGGER.toString(),
@@ -55,7 +55,7 @@ export async function getNeedsTopUp(
   );
   console.info(`EURe balance: ${eureBalanceDisplay}`);
 
-  return topUpTriggerAmount > eureBalance;
+  return topUpTriggerAmount.gt(eureBalance);
 }
 
 export async function getTopupAmount(
