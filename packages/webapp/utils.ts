@@ -3,6 +3,8 @@ import { createPublicClient, http, parseUnits } from "viem";
 import { gnosis } from "viem/chains";
 import { setUpRolesMod } from "zodiac-roles-sdk";
 
+const ADDR_1 = "0x0000000000000000000000000000000000000001";
+
 const client = createPublicClient({
   chain: gnosis,
   transport: http(),
@@ -14,7 +16,7 @@ export async function findDelayModule(safeAddress: `0x${string}`): Promise<`0x${
       address: safeAddress,
       abi: SAFE_ABI,
       functionName: "getModulesPaginated",
-      args: ["0x0000000000000000000000000000000000000001", 5],
+      args: [ADDR_1, 5],
     })) as string[]
   )[0];
 
@@ -38,6 +40,25 @@ export async function findDelayModule(safeAddress: `0x${string}`): Promise<`0x${
   }
 
   return newDelayAddress as `0x${string}`;
+}
+
+export async function findPrevModule(avatarAddress: `0x${string}`, needle: `0x${string}`): Promise<`0x${string}`> {
+  const modules = (
+    (await client.readContract({
+      address: avatarAddress,
+      abi: SAFE_ABI,
+      functionName: "getModulesPaginated",
+      args: [ADDR_1, 5],
+    })) as any
+  )[0] as string[];
+
+  const moduleIndex = modules.indexOf(needle);
+
+  if (moduleIndex === 0) {
+    return ADDR_1;
+  }
+
+  return modules[moduleIndex - 1] as `0x${string}`;
 }
 
 export function findRolesModuleAddress(safeAddress: `0x${string}`, delayAddress: `0x${string}`) {

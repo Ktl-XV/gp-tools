@@ -1,24 +1,36 @@
 "use client";
 
 import { useState } from "react";
-import { AAVE, CUSTOM_NULL_ADDRESS, DELAY_ABI, ERC20_ABI, EURe, MAX_UINT256, aEURe } from "@gp-aave/lib";
+import {
+  AAVE,
+  CUSTOM_NULL_ADDRESS,
+  DELAY_ABI,
+  ERC20_ABI,
+  EURe,
+  MAX_UINT256,
+  ROLES_ABI,
+  ROLE_KEY_WITHDRAW_EURE_FROM_AAVE,
+  aEURe,
+} from "@gp-aave/lib";
 import { MetaTransaction, TransactionType, encodeMulti, encodeSingle } from "ethers-multisend";
 import type { NextPage } from "next";
 import { isAddress } from "viem";
 import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import { setUpRolesMod } from "zodiac-roles-sdk";
 import { allow } from "zodiac-roles-sdk/kit";
-import { ForwardIcon } from "@heroicons/react/24/outline";
+import { ArrowsRightLeftIcon, ForwardIcon } from "@heroicons/react/24/outline";
 import { Address } from "~~/components/scaffold-eth";
 import { AddressInput } from "~~/components/scaffold-eth";
 import { useTransactor } from "~~/hooks/scaffold-eth";
-import { findSafeProperties, formatAddresses } from "~~/utils";
+import { findPrevModule, findSafeProperties, formatAddresses } from "~~/utils";
 
 const Setup: NextPage = () => {
   const [safeAddress, setSafeAddress] = useState<string>("");
   const [delayAddress, setDelayAddress] = useState<string>("");
   const [hotWalletAddress, setHotWalletAddress] = useState<string>("");
   const [executorAddress, setExecutorAddress] = useState<string>("");
+  const [oldExecutorAddress, setOldExecutorAddress] = useState<string>("");
+  const [newExecutorAddress, setNewExecutorAddress] = useState<string>("");
   const [rolesModuleAddress, setRolesModuleAddress] = useState<string>("");
   const [isRolesModuleDeployed, setIsRolesModuleDeployed] = useState<boolean>();
   const [isConnectedOwner, setIsConnectedOwner] = useState<boolean>();
@@ -111,6 +123,55 @@ const Setup: NextPage = () => {
     return encodeMulti(calls);
   }
 
+  function buildChangeExecutorMultisend(
+    safeAddress: `0x${string}`,
+    delayAddress: `0x${string}`,
+    rolesModuleAddress: `0x${string}`,
+    oldExecutorAddress: `0x${string}`,
+    newExecutorAddress: `0x${string}`,
+    prevToOldExecutorAddressModule: `0x${string}`,
+  ): MetaTransaction {
+    const calls = [
+      encodeSingle({
+        type: TransactionType.callContract,
+        id: "",
+        to: rolesModuleAddress,
+        value: "0",
+        abi: JSON.stringify(ROLES_ABI),
+        functionSignature: "assignRoles(address,bytes32[],bool[])",
+        inputValues: [oldExecutorAddress, [ROLE_KEY_WITHDRAW_EURE_FROM_AAVE], [false]],
+      }),
+      encodeSingle({
+        type: TransactionType.callContract,
+        id: "",
+        to: rolesModuleAddress,
+        value: "0",
+        abi: JSON.stringify(ROLES_ABI),
+        functionSignature: "disableModule(address,address)",
+        inputValues: [prevToOldExecutorAddressModule, oldExecutorAddress],
+      }),
+      encodeSingle({
+        type: TransactionType.callContract,
+        id: "",
+        to: rolesModuleAddress,
+        value: "0",
+        abi: JSON.stringify(ROLES_ABI),
+        functionSignature: "enableModule(address)",
+        inputValues: [newExecutorAddress],
+      }),
+      encodeSingle({
+        type: TransactionType.callContract,
+        id: "",
+        to: rolesModuleAddress,
+        value: "0",
+        abi: JSON.stringify(ROLES_ABI),
+        functionSignature: "assignRoles(address,bytes32[],bool[])",
+        inputValues: [newExecutorAddress, [ROLE_KEY_WITHDRAW_EURE_FROM_AAVE], [true]],
+      }),
+    ];
+    return encodeMulti(calls);
+  }
+
   function prepTx(connectedAddress: `0x${string}`, delayAddress: `0x${string}`, multiSendTx: MetaTransaction) {
     return {
       account: connectedAddress,
@@ -120,7 +181,7 @@ const Setup: NextPage = () => {
     };
   }
 
-  async function queueSetup() {
+  async function setupQueue() {
     const [_safeAddress, _delayAddress, _connectedAddress, _executorAddress, _hotWalletAddress] = formatAddresses([
       safeAddress,
       delayAddress,
@@ -139,7 +200,7 @@ const Setup: NextPage = () => {
     }
   }
 
-  async function executeSetup() {
+  async function setupExecute() {
     const [_safeAddress, _delayAddress, _connectedAddress, _executorAddress, _hotWalletAddress] = formatAddresses([
       safeAddress,
       delayAddress,
@@ -149,6 +210,73 @@ const Setup: NextPage = () => {
     ]);
     if (connectedAddress) {
       const multiSendTx = buildMultisend(_safeAddress, _delayAddress, _executorAddress, _hotWalletAddress);
+      const preppedTx = await prepTx(_connectedAddress, _delayAddress, multiSendTx);
+      const writePromise = writeContractAsync({ functionName: "executeNextTx", ...preppedTx });
+      writeTx(writePromise, { blockConfirmations: 1 });
+    }
+  }
+  async function changeExecutorQueue() {
+    const [
+      _safeAddress,
+      _delayAddress,
+      _rolesModuleAddress,
+      _connectedAddress,
+      _oldExecutorAddress,
+      _newExecutorAddress,
+    ] = formatAddresses([
+      safeAddress,
+      delayAddress,
+      rolesModuleAddress,
+      connectedAddress,
+      oldExecutorAddress,
+      newExecutorAddress,
+    ]);
+    if (connectedAddress) {
+      const prevToOldExecutorAddressModule = await findPrevModule(_rolesModuleAddress, _oldExecutorAddress);
+      const multiSendTx = buildChangeExecutorMultisend(
+        _safeAddress,
+        _delayAddress,
+        _rolesModuleAddress,
+        _oldExecutorAddress,
+        _newExecutorAddress,
+        prevToOldExecutorAddressModule,
+      );
+      const preppedTx = await prepTx(_connectedAddress, _delayAddress, multiSendTx);
+      const writePromise = writeContractAsync({
+        functionName: "execTransactionFromModule",
+        ...preppedTx,
+      });
+      writeTx(writePromise, { blockConfirmations: 1 });
+    }
+  }
+
+  async function changeExecutorExecute() {
+    const [
+      _safeAddress,
+      _delayAddress,
+      _rolesModuleAddress,
+      _connectedAddress,
+      _oldExecutorAddress,
+      _newExecutorAddress,
+    ] = formatAddresses([
+      safeAddress,
+      delayAddress,
+      rolesModuleAddress,
+      connectedAddress,
+      oldExecutorAddress,
+      newExecutorAddress,
+    ]);
+    if (connectedAddress) {
+      const prevToOldExecutorAddressModule = await findPrevModule(_rolesModuleAddress, _oldExecutorAddress);
+      console.log(prevToOldExecutorAddressModule);
+      const multiSendTx = buildChangeExecutorMultisend(
+        _safeAddress,
+        _delayAddress,
+        _rolesModuleAddress,
+        _oldExecutorAddress,
+        _newExecutorAddress,
+        prevToOldExecutorAddressModule,
+      );
       const preppedTx = await prepTx(_connectedAddress, _delayAddress, multiSendTx);
       const writePromise = writeContractAsync({ functionName: "executeNextTx", ...preppedTx });
       writeTx(writePromise, { blockConfirmations: 1 });
@@ -167,6 +295,7 @@ const Setup: NextPage = () => {
       writeTx(writePromise, { blockConfirmations: 1 });
     }
   }
+
   async function updateSafeAddress(newSafeAddress: string) {
     const typedSafeAddress = newSafeAddress as `0x${string}`;
     setSafeAddress(typedSafeAddress);
@@ -244,14 +373,14 @@ const Setup: NextPage = () => {
             <button
               disabled={safeAddress === "" || executorAddress === "" || isRolesModuleDeployed === true}
               className="btn btn-primary"
-              onClick={queueSetup}
+              onClick={setupQueue}
             >
               Queue
             </button>
             <button
               disabled={safeAddress === "" || executorAddress === "" || isRolesModuleDeployed === true}
               className="btn btn-primary"
-              onClick={executeSetup}
+              onClick={setupExecute}
             >
               Execute
             </button>
@@ -295,6 +424,36 @@ const Setup: NextPage = () => {
               <button disabled={delayAddress === ""} className="btn btn-primary" onClick={skipExpired}>
                 Execute
               </button>
+            </div>
+            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
+              <ArrowsRightLeftIcon className="h-8 w-8 fill-secondary" />
+              Change Executor
+              <AddressInput
+                onChange={setOldExecutorAddress}
+                value={oldExecutorAddress}
+                placeholder="Input your Old Executor Address"
+              />
+              <AddressInput
+                onChange={setNewExecutorAddress}
+                value={newExecutorAddress}
+                placeholder="Input your New ExecutorAddress"
+              />
+              <div>
+                <button
+                  className="btn btn-primary"
+                  disabled={oldExecutorAddress === "" || newExecutorAddress === ""}
+                  onClick={changeExecutorQueue}
+                >
+                  Queue
+                </button>
+                <button
+                  className="btn btn-primary"
+                  disabled={oldExecutorAddress === "" || newExecutorAddress === ""}
+                  onClick={changeExecutorExecute}
+                >
+                  Execute
+                </button>
+              </div>
             </div>
           </div>
         </div>
