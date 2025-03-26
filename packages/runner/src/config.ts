@@ -6,5 +6,5 @@ export const DELAY = process.env.DELAY;
 export const ROLES = process.env.ROLES;
 export const TOPUP_TRIGGER = process.env.TOPUP_TRIGGER;
 export const TOPUP_TO = process.env.TOPUP_TO;
-export const API_KEY = process.env.API_KEY;
-export const API_SECRET = process.env.API_SECRET;
+export const RPC = process.env.RPC;
+export const PRIVATE_KEY = process.env.PRIVATE_KEY;

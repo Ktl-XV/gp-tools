@@ -16,22 +16,9 @@ module.exports = {
   resolve: {
     extensions: [".ts", ".js"],
   },
-  externals: [
-    // List here all dependencies available on the Autotask environment
-    /axios/,
-    /apollo-client/,
-    /defender-[^\-]+-client/,
-    /ethers/,
-    /web3/,
-    /@ethersproject\/.*/,
-    /aws-sdk/,
-    /aws-sdk\/.*/,
-  ],
+  externals: [],
   externalsType: "commonjs2",
-  plugins: [
-    // List here all dependencies that are not run in the Autotask environment
-    new Dotenv({ path: "../../.env", safe: true }),
-  ],
+  plugins: [],
   output: {
     filename: "[name].js",
     path: path.resolve(__dirname, "dist"),

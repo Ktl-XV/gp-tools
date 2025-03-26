@@ -2,6 +2,7 @@
   "name": "@gp-aave/lib",
   "private": true,
   "version": "0.1.0",
+  "mode": true,
   "devDependencies": {
     "@dethcrypto/eth-sdk": "^0.3.4"
   }
